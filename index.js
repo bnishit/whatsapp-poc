@@ -10,6 +10,9 @@ const {
     Location
 } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const path = require('path');
+const { LowSync } = require('lowdb');
+const { JSONFileSync } = require('lowdb/node');
 
 const app = express();
 const server = http.createServer(app);
@@ -19,6 +22,19 @@ const io = new Server(server);
 app.use(express.json());
 
 app.use(express.static('public'));
+
+// Simple JSON database using lowdb to persist received messages
+const dbFile = path.join(__dirname, 'messages.json');
+const db = new LowSync(new JSONFileSync(dbFile));
+db.read();
+db.data ||= { messages: [] };
+function saveDb() {
+    try {
+        db.write();
+    } catch (err) {
+        console.error('Failed to save database', err);
+    }
+}
 
 let authStrategy;
 if (process.env.REMOTE_AUTH) {
@@ -59,7 +75,15 @@ client.on('message', msg => {
     if (msg.body === '!ping') {
         msg.reply('pong');
     }
+    const entry = { from: msg.from, body: msg.body, timestamp: Date.now() };
+    db.data.messages.push(entry);
+    saveDb();
     io.emit('message', { from: msg.from, body: msg.body });
+});
+
+// Retrieve stored messages
+app.get('/messages', (_req, res) => {
+    res.json(db.data.messages);
 });
 
 // HTTP endpoint to send a message to a chat or number
@@ -118,6 +142,10 @@ app.post('/send', async (req, res) => {
                 }
                 await client.sendMessage(chatId, message);
         }
+
+        // store outgoing message in db
+        db.data.messages.push({ to: chatId, type, body: message, timestamp: Date.now(), direction: 'out' });
+        saveDb();
 
         res.json({ status: 'sent' });
     } catch (err) {
