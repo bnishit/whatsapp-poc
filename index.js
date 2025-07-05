@@ -86,6 +86,24 @@ app.get('/messages', (_req, res) => {
     res.json(db.data.messages);
 });
 
+// Search stored messages
+app.get('/messages/search', (req, res) => {
+    const { q = '', chat, limit } = req.query;
+    const needle = q.toLowerCase();
+    let results = db.data.messages.filter(m => {
+        if (chat && !(m.from === chat || m.to === chat)) return false;
+        if (needle && !(m.body && m.body.toLowerCase().includes(needle))) return false;
+        return true;
+    });
+    if (limit) {
+        const n = parseInt(limit, 10);
+        if (!Number.isNaN(n)) {
+            results = results.slice(-n);
+        }
+    }
+    res.json(results);
+});
+
 // HTTP endpoint to send a message to a chat or number
 app.post('/send', async (req, res) => {
     const { to, type = 'text', message, media, latitude, longitude, contacts, poll, sticker } = req.body;

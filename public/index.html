@@ -18,6 +18,10 @@
     <button id="send">Send</button>
     <h2>Messages</h2>
     <ul id="messages"></ul>
+    <h2>Search Messages</h2>
+    <input id="searchQuery" placeholder="Search text">
+    <button id="searchBtn">Search</button>
+    <ul id="searchResults"></ul>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -59,6 +63,21 @@
             const li = document.createElement('li');
             li.textContent = `${m.from}: ${m.body}`;
             document.getElementById('messages').appendChild(li);
+        });
+
+        document.getElementById('searchBtn').addEventListener('click', async () => {
+            const q = document.getElementById('searchQuery').value;
+            const res = await fetch('/messages/search?q=' + encodeURIComponent(q));
+            const msgs = await res.json();
+            const ul = document.getElementById('searchResults');
+            ul.innerHTML = '';
+            msgs.forEach(m => {
+                const li = document.createElement('li');
+                if (m.from) li.textContent = `${m.from}: ${m.body}`;
+                else if (m.to) li.textContent = `to ${m.to}: ${m.body}`;
+                else li.textContent = m.body;
+                ul.appendChild(li);
+            });
         });
     </script>
 </body>
