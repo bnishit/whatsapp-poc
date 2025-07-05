@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhatsApp Feature Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        section { border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+        h2 { margin-top: 0; }
+    </style>
+</head>
+<body>
+    <h1>WhatsApp Feature Demo</h1>
+    <div id="login">
+        <h2>Login</h2>
+        <div id="qr"></div>
+        <div id="status">Waiting for QR code...</div>
+    </div>
+
+    <div id="features" style="display:none;">
+        <section>
+            <h2>Send Message</h2>
+            <input id="msg-to" placeholder="Number or chat id" />
+            <input id="msg-text" placeholder="Message" />
+            <button id="send-btn">Send</button>
+        </section>
+
+        <section>
+            <h2>Chats</h2>
+            <button id="load-chats">Load Chats</button>
+            <input id="search-chats-q" placeholder="Search query" />
+            <button id="search-chats-btn">Search</button>
+            <ul id="chats-list"></ul>
+            <input id="archive-chat-id" placeholder="Chat id" />
+            <button id="archive-chat-btn">Archive</button>
+            <button id="unarchive-chat-btn">Unarchive</button>
+        </section>
+
+        <section>
+            <h2>Groups</h2>
+            <div>
+                <input id="group-name" placeholder="Group name" />
+                <input id="group-participants" placeholder="Participants comma separated" />
+                <button id="create-group-btn">Create Group</button>
+            </div>
+            <div>
+                <input id="group-id" placeholder="Group id" />
+                <input id="group-members" placeholder="Members comma separated" />
+                <button id="group-add-btn">Add</button>
+                <button id="group-remove-btn">Remove</button>
+                <button id="group-promote-btn">Promote</button>
+                <button id="group-demote-btn">Demote</button>
+            </div>
+        </section>
+
+        <section>
+            <h2>Contacts</h2>
+            <button id="load-contacts">Load Contacts</button>
+            <ul id="contacts-list"></ul>
+            <input id="contact-id" placeholder="Contact id" />
+            <button id="block-contact-btn">Block</button>
+            <button id="unblock-contact-btn">Unblock</button>
+        </section>
+
+        <section>
+            <h2>Profile</h2>
+            <button id="load-profile-pic">Load Profile Picture</button>
+            <img id="profile-pic" style="max-width:200px;display:block;" />
+            <input id="status-text" placeholder="Status" />
+            <button id="update-status">Update Status</button>
+            <input id="about-text" placeholder="About" />
+            <button id="update-about">Update About</button>
+        </section>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        socket.on('qr', data => {
+            document.getElementById('status').textContent = 'Scan the QR code below with WhatsApp:';
+            const img = document.createElement('img');
+            img.src = data;
+            const qrDiv = document.getElementById('qr');
+            qrDiv.innerHTML = '';
+            qrDiv.appendChild(img);
+        });
+
+        socket.on('ready', () => {
+            document.getElementById('status').textContent = 'Client is ready!';
+            document.getElementById('features').style.display = 'block';
+        });
+
+        document.getElementById('send-btn').onclick = async () => {
+            const to = document.getElementById('msg-to').value;
+            const message = document.getElementById('msg-text').value;
+            await fetch('/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to, message })
+            });
+        };
+
+        document.getElementById('load-chats').onclick = async () => {
+            const res = await fetch('/chats');
+            const chats = await res.json();
+            const ul = document.getElementById('chats-list');
+            ul.innerHTML = '';
+            chats.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = `${c.name} (${c.id})`;
+                ul.appendChild(li);
+            });
+        };
+
+        document.getElementById('search-chats-btn').onclick = async () => {
+            const q = document.getElementById('search-chats-q').value;
+            const res = await fetch('/chats/search?q=' + encodeURIComponent(q));
+            const chats = await res.json();
+            const ul = document.getElementById('chats-list');
+            ul.innerHTML = '';
+            chats.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = c.name || c.id._serialized;
+                ul.appendChild(li);
+            });
+        };
+
+        document.getElementById('archive-chat-btn').onclick = async () => {
+            const id = document.getElementById('archive-chat-id').value;
+            if (id) await fetch('/chats/' + id + '/archive', { method: 'POST' });
+        };
+
+        document.getElementById('unarchive-chat-btn').onclick = async () => {
+            const id = document.getElementById('archive-chat-id').value;
+            if (id) await fetch('/chats/' + id + '/unarchive', { method: 'POST' });
+        };
+
+        document.getElementById('create-group-btn').onclick = async () => {
+            const name = document.getElementById('group-name').value;
+            const participants = document.getElementById('group-participants').value.split(',').map(p => p.trim()).filter(p => p);
+            await fetch('/group/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, participants })
+            });
+        };
+
+        const groupAction = async (action) => {
+            const id = document.getElementById('group-id').value;
+            const members = document.getElementById('group-members').value.split(',').map(p => p.trim()).filter(p => p);
+            if (!id) return;
+            await fetch(`/group/${id}/${action}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ members })
+            });
+        };
+        document.getElementById('group-add-btn').onclick = () => groupAction('add');
+        document.getElementById('group-remove-btn').onclick = () => groupAction('remove');
+        document.getElementById('group-promote-btn').onclick = () => groupAction('promote');
+        document.getElementById('group-demote-btn').onclick = () => groupAction('demote');
+
+        document.getElementById('load-contacts').onclick = async () => {
+            const res = await fetch('/contacts');
+            const contacts = await res.json();
+            const ul = document.getElementById('contacts-list');
+            ul.innerHTML = '';
+            contacts.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = `${c.name} (${c.id})`;
+                ul.appendChild(li);
+            });
+        };
+
+        document.getElementById('block-contact-btn').onclick = async () => {
+            const id = document.getElementById('contact-id').value;
+            if (id) await fetch('/contact/block', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+        };
+
+        document.getElementById('unblock-contact-btn').onclick = async () => {
+            const id = document.getElementById('contact-id').value;
+            if (id) await fetch('/contact/unblock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+        };
+
+        document.getElementById('load-profile-pic').onclick = async () => {
+            const res = await fetch('/profile/picture');
+            const data = await res.json();
+            document.getElementById('profile-pic').src = data.url;
+        };
+
+        document.getElementById('update-status').onclick = async () => {
+            const text = document.getElementById('status-text').value;
+            await fetch('/profile/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+        };
+
+        document.getElementById('update-about').onclick = async () => {
+            const text = document.getElementById('about-text').value;
+            await fetch('/profile/about', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+        };
+    </script>
+</body>
+</html>
