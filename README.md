@@ -37,6 +37,7 @@ The server provides a simple JSON API.
 
 - `POST /send` — send messages (text, media, contacts, polls, stickers and locations)
 - `GET /messages` — list stored incoming and outgoing messages
+- `GET /messages/search?q=text&chat=id&limit=n` — search stored messages
 - `GET /chats` — list all chats
 - `GET /chats/search?q=text` — search chats by name
 - `POST /chats/:id/archive` and `.../unarchive` — archive/unarchive a chat
