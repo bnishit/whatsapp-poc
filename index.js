@@ -30,7 +30,10 @@ if (process.env.REMOTE_AUTH) {
 }
 
 const client = new Client({
-    authStrategy
+    authStrategy,
+    puppeteer: {
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
 });
 
 client.on('qr', async (qr) => {
@@ -374,7 +377,7 @@ client.on('message_ack', (msg, ack) => {
 
 // Forward additional events
 const events = [
-    'authenticated', 'auth_failure', 'ready', 'message', 'message_create',
+    'authenticated', 'auth_failure', 'message_create',
     'group_join', 'group_leave', 'group_update'
 ];
 events.forEach(e => client.on(e, (...data) => io.emit(e, data)));

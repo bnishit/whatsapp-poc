@@ -20,9 +20,12 @@ Start the server with:
 node index.js
 ```
 
-Open `http://localhost:3000` in your browser. Scan the QR code with the WhatsApp
-app on your phone. After authentication the page will show a list of your chat
-names.
+Open `http://localhost:3000` in your browser. This loads the minimal interface in
+`public/index.html` which shows the QR code and allows sending a basic message.
+For a more complete demonstration with extra features, open
+`http://localhost:3000/ui.html` instead.
+Scan the QR code with the WhatsApp app on your phone. After authentication the
+page will show a list of your chat names.
 
 ## API Endpoints
 
