@@ -3,9 +3,10 @@
 <head>
     <title>WhatsApp Feature Demo</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        section { border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+        body { font-family: Arial, sans-serif; padding: 20px; background:#f4f4f4; }
+        section { border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; background:white; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; }
+        input, button, select { margin:4px; padding:6px; }
     </style>
 </head>
 <body>
@@ -69,6 +70,20 @@
             <button id="update-status">Update Status</button>
             <input id="about-text" placeholder="About" />
             <button id="update-about">Update About</button>
+        </section>
+
+        <section>
+            <h2>Send Media</h2>
+            <input id="media-to" placeholder="Number or chat id" />
+            <input type="file" id="media-file" />
+            <input id="media-url" placeholder="File URL" />
+            <select id="media-type">
+                <option value="media">Media</option>
+                <option value="video">Video</option>
+                <option value="gif">GIF</option>
+                <option value="sticker">Sticker</option>
+            </select>
+            <button id="send-media-btn">Send Media</button>
         </section>
     </div>
 
@@ -210,6 +225,30 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text })
+            });
+        };
+
+        document.getElementById('send-media-btn').onclick = async () => {
+            const to = document.getElementById('media-to').value;
+            const type = document.getElementById('media-type').value;
+            const file = document.getElementById('media-file').files[0];
+            const url = document.getElementById('media-url').value;
+            const media = {};
+            if (file) {
+                const buf = await file.arrayBuffer();
+                media.data = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                media.mimetype = file.type;
+                media.filename = file.name;
+            } else if (url) {
+                media.url = url;
+            } else {
+                alert('Select a file or provide a URL');
+                return;
+            }
+            await fetch('/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to, type, media })
             });
         };
     </script>

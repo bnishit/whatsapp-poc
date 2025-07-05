@@ -9,6 +9,8 @@ const {
     MessageMedia,
     Location
 } = require('whatsapp-web.js');
+const fs = require('fs');
+const mime = require('mime-types');
 const qrcode = require('qrcode');
 const path = require('path');
 const { LowSync } = require('lowdb');
@@ -34,6 +36,36 @@ function saveDb() {
     } catch (err) {
         console.error('Failed to save database', err);
     }
+}
+
+async function mediaFromFile(filePath) {
+    const buffer = await fs.promises.readFile(filePath);
+    const mimetype = mime.lookup(filePath) || 'application/octet-stream';
+    const filename = path.basename(filePath);
+    return new MessageMedia(mimetype, buffer.toString('base64'), filename);
+}
+
+async function mediaFromUrl(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const mimetype = res.headers.get('content-type') || mime.lookup(url) || 'application/octet-stream';
+    const filename = path.basename(new URL(url).pathname);
+    return new MessageMedia(mimetype, buffer.toString('base64'), filename || 'file');
+}
+
+async function prepareMedia(media) {
+    if (!media) throw new Error('media required');
+    if (media.data && media.mimetype) {
+        return new MessageMedia(media.mimetype, media.data, media.filename || 'file');
+    }
+    if (media.path) {
+        return await mediaFromFile(media.path);
+    }
+    if (media.url) {
+        return await mediaFromUrl(media.url);
+    }
+    throw new Error('invalid media object');
 }
 
 let authStrategy;
@@ -71,19 +103,35 @@ client.on('ready', () => {
 });
 
 // Reply to simple ping messages and forward received messages to the UI
-client.on('message', msg => {
+client.on('message', async msg => {
     if (msg.body === '!ping') {
         msg.reply('pong');
     }
-    const entry = { from: msg.from, body: msg.body, timestamp: Date.now() };
+    const entry = { id: msg.id._serialized, from: msg.from, body: msg.body, type: msg.type, timestamp: Date.now(), direction: 'in' };
+    if (msg.hasMedia) {
+        try {
+            const media = await msg.downloadMedia();
+            entry.media = { mimetype: media.mimetype, data: media.data, filename: media.filename };
+        } catch (err) {
+            console.error('Failed to download media', err);
+        }
+    }
     db.data.messages.push(entry);
     saveDb();
-    io.emit('message', { from: msg.from, body: msg.body });
+    io.emit('message', { from: msg.from, body: msg.body, media: entry.media });
 });
 
 // Retrieve stored messages
 app.get('/messages', (_req, res) => {
     res.json(db.data.messages);
+});
+
+app.get('/media/:id', (req, res) => {
+    const msg = db.data.messages.find(m => m.id === req.params.id);
+    if (!msg || !msg.media) {
+        return res.status(404).json({ error: 'not found' });
+    }
+    res.json(msg.media);
 });
 
 // Search stored messages
@@ -114,14 +162,22 @@ app.post('/send', async (req, res) => {
     try {
         const chatId = to.includes('@') ? to : `${to}@c.us`;
 
+        let sentMedia;
         switch (type) {
             case 'media':
-                if (!media || !media.data || !media.mimetype) {
-                    return res.status(400).json({ error: 'media with data and mimetype required' });
-                }
-                const mediaMsg = new MessageMedia(media.mimetype, media.data, media.filename || 'file');
-                await client.sendMessage(chatId, mediaMsg);
+            case 'media-url':
+            case 'media-file':
+            case 'video':
+            case 'gif':
+            case 'sticker': {
+                const m = await prepareMedia(media);
+                const options = {};
+                if (type === 'sticker') options.sendMediaAsSticker = true;
+                if (type === 'gif') options.sendVideoAsGif = true;
+                await client.sendMessage(chatId, m, options);
+                sentMedia = { mimetype: m.mimetype, data: m.data, filename: m.filename };
                 break;
+            }
             case 'location':
                 if (latitude == null || longitude == null) {
                     return res.status(400).json({ error: 'latitude and longitude required' });
@@ -147,13 +203,6 @@ app.post('/send', async (req, res) => {
                 }
                 await client.sendMessage(chatId, message || '', { poll });
                 break;
-            case 'sticker':
-                if (!media || !media.data || !media.mimetype) {
-                    return res.status(400).json({ error: 'media with data and mimetype required' });
-                }
-                const stickerMsg = new MessageMedia(media.mimetype, media.data, media.filename || 'sticker');
-                await client.sendMessage(chatId, stickerMsg, { sendMediaAsSticker: true });
-                break;
             default:
                 if (!message) {
                     return res.status(400).json({ error: 'message is required' });
@@ -162,7 +211,9 @@ app.post('/send', async (req, res) => {
         }
 
         // store outgoing message in db
-        db.data.messages.push({ to: chatId, type, body: message, timestamp: Date.now(), direction: 'out' });
+        const outEntry = { id: Date.now().toString(), to: chatId, type, body: message, timestamp: Date.now(), direction: 'out' };
+        if (sentMedia) outEntry.media = sentMedia;
+        db.data.messages.push(outEntry);
         saveDb();
 
         res.json({ status: 'sent' });

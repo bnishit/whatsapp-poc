@@ -3,8 +3,9 @@
 <head>
     <title>WhatsApp Login</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
+        body { font-family: Arial, sans-serif; padding: 20px; background:#f4f4f4; }
         #qr { margin-bottom: 20px; }
+        input, button, select { margin:4px; padding:6px; }
     </style>
 </head>
 <body>
@@ -15,6 +16,14 @@
     <h2>Send Message</h2>
     <input id="to" placeholder="Phone number or chat id">
     <input id="messageInput" placeholder="Message">
+    <input type="file" id="fileInput">
+    <input id="urlInput" placeholder="File URL">
+    <select id="msgType">
+        <option value="text">Text</option>
+        <option value="media">Media</option>
+        <option value="video">Video</option>
+        <option value="gif">GIF</option>
+    </select>
     <button id="send">Send</button>
     <h2>Messages</h2>
     <ul id="messages"></ul>
@@ -49,19 +58,68 @@
             });
         });
 
-        document.getElementById('send').addEventListener('click', () => {
+        document.getElementById('send').addEventListener('click', async () => {
             const to = document.getElementById('to').value;
             const message = document.getElementById('messageInput').value;
+            const type = document.getElementById('msgType').value;
+            const file = document.getElementById('fileInput').files[0];
+            const url = document.getElementById('urlInput').value;
+            const payload = { to, type };
+            if (type === 'text') {
+                payload.message = message;
+            } else {
+                const media = {};
+                if (file) {
+                    const buf = await file.arrayBuffer();
+                    media.data = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                    media.mimetype = file.type;
+                    media.filename = file.name;
+                } else if (url) {
+                    media.url = url;
+                } else {
+                    alert('Select a file or provide a URL');
+                    return;
+                }
+                payload.media = media;
+            }
+            if (message && type !== 'text') payload.message = message;
             fetch('/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to, message })
+                body: JSON.stringify(payload)
             });
         });
 
         socket.on('message', m => {
             const li = document.createElement('li');
-            li.textContent = `${m.from}: ${m.body}`;
+            const prefix = `${m.from}: `;
+            if (m.media) {
+                const span = document.createElement('span');
+                span.textContent = prefix + (m.body || '');
+                li.appendChild(span);
+                const mime = m.media.mimetype || '';
+                const src = `data:${mime};base64,${m.media.data}`;
+                if (mime.startsWith('image')) {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.style.maxWidth = '200px';
+                    li.appendChild(img);
+                } else if (mime.startsWith('video')) {
+                    const vid = document.createElement('video');
+                    vid.src = src;
+                    vid.controls = true;
+                    vid.style.maxWidth = '200px';
+                    li.appendChild(vid);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = src;
+                    a.textContent = m.media.filename || 'download';
+                    a.download = m.media.filename || 'file';
+                    li.appendChild(a);
+                }
+            } else {
+                li.textContent = prefix + m.body;
+            }
             document.getElementById('messages').appendChild(li);
         });
 

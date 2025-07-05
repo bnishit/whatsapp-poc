@@ -28,15 +28,16 @@ Scan the QR code with the WhatsApp app on your phone. After authentication the
 page will show a list of your chat names.
 
 All received and sent messages are stored in a small JSON database located in
-`messages.json` at the project root. The `/messages` endpoint can be used to
-retrieve them.
+`messages.json` at the project root. Media attachments are stored inline as
+base64 so they can be fetched later using the `/media/:id` endpoint. The
+`/messages` endpoint can be used to retrieve the history.
 
 ## API Endpoints
 
-The server provides a simple JSON API.
-
-- `POST /send` — send messages (text, media, contacts, polls, stickers and locations)
+- The server provides a simple JSON API.
+- `POST /send` — send messages (text, media, local files, URLs, videos, GIFs, contacts, polls, stickers and locations)
 - `GET /messages` — list stored incoming and outgoing messages
+- `GET /media/:id` — retrieve a stored attachment
 - `GET /messages/search?q=text&chat=id&limit=n` — search stored messages
 - `GET /chats` — list all chats
 - `GET /chats/search?q=text` — search chats by name
