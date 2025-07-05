@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Your Chats</title>
+</head>
+<body>
+<h1>Chats</h1>
+<ul id="chats"></ul>
+<script>
+async function loadChats() {
+  const res = await fetch('/api/chats');
+  if (res.ok) {
+    const chats = await res.json();
+    const list = document.getElementById('chats');
+    list.innerHTML = '';
+    chats.forEach(c => {
+      const li = document.createElement('li');
+      li.textContent = c.name;
+      list.appendChild(li);
+    });
+  } else {
+    document.body.insertAdjacentHTML('beforeend', '<p>Error loading chats.</p>');
+  }
+}
+loadChats();
+</script>
+</body>
+</html>

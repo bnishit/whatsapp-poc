@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WhatsApp Login</title>
+</head>
+<body>
+<h1>WhatsApp QR Login</h1>
+<p id="message">Waiting for QR code...</p>
+<div id="qr"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  socket.on('qr', url => {
+    document.getElementById('message').textContent = 'Scan the QR code:';
+    const img = new Image();
+    img.src = url;
+    const qrDiv = document.getElementById('qr');
+    qrDiv.innerHTML = '';
+    qrDiv.appendChild(img);
+  });
+  socket.on('ready', () => {
+    window.location = '/chats.html';
+  });
+</script>
+</body>
+</html>
