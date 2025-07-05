@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhatsApp Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #qr { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>WhatsApp Login</h1>
+    <div id="qr"></div>
+    <div id="status">Waiting for QR code...</div>
+    <ul id="chats"></ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        socket.on('qr', data => {
+            document.getElementById('status').textContent = 'Scan the QR code below with WhatsApp:';
+            const img = document.createElement('img');
+            img.src = data;
+            const qrDiv = document.getElementById('qr');
+            qrDiv.innerHTML = '';
+            qrDiv.appendChild(img);
+        });
+
+        socket.on('ready', () => {
+            document.getElementById('status').textContent = 'Client is ready!';
+        });
+
+        socket.on('chats', chats => {
+            const ul = document.getElementById('chats');
+            ul.innerHTML = '';
+            chats.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = c;
+                ul.appendChild(li);
+            });
+        });
+    </script>
+</body>
+</html>

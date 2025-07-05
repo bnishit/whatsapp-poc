@@ -1,6 +1,7 @@
 # WhatsApp POC
 
-This project demonstrates how to log in to WhatsApp Web using [`whatsapp-web.js`](https://github.com/pedroslopez/whatsapp-web.js) and list all your chats.
+This project demonstrates how to log in to WhatsApp Web using [`whatsapp-web.js`](https://github.com/pedroslopez/whatsapp-web.js).
+A small web interface displays the QR code and shows your chats once logged in.
 
 ## Setup
 
@@ -13,10 +14,12 @@ npm install
 
 ## Running
 
-Run the script with:
+Start the server with:
 
 ```bash
 node index.js
 ```
 
-When the QR code appears in the terminal, scan it with the WhatsApp app on your phone. After successful authentication, the script will print "Client is ready!" and list your chat names.
+Open `http://localhost:3000` in your browser. Scan the QR code with the WhatsApp
+app on your phone. After authentication the page will show a list of your chat
+names.
